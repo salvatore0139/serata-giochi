@@ -3,147 +3,102 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin - Gestione Avanzata</title>
+    <title>Admin - Salvatore</title>
     <style>
-        :root { --admin-bg: #2c3e50; --danger: #e74c3c; }
-        body { font-family: sans-serif; background: #f8f9fa; margin: 0; display: none; /* Nascondiamo tutto finché la password è errata */ }
-        nav { background: var(--admin-bg); padding: 15px; color: white; display: flex; justify-content: space-between; }
-        .container { max-width: 900px; margin: 20px auto; padding: 20px; }
-        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        
-        button { padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
-        .btn-crea { background: #27ae60; color: white; }
-        .btn-chiudi { background: var(--danger); color: white; }
-        .btn-info { background: #3498db; color: white; margin-top: 10px; }
-        
-        input { padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
-        .poll-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #eee; }
-        
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #ddd; }
-        th { background: #f2f2f2; }
+        :root { --primary: #2c3e50; --accent: #27ae60; --bg: #ecf0f1; --text: #333; --danger: #e74c3c; }
+        body { font-family: 'Segoe UI', sans-serif; background-color: var(--bg); margin: 0; display: none; }
+        nav { background: var(--primary); padding: 15px; display: flex; justify-content: space-between; color: white; }
+        nav a { color: white; text-decoration: none; margin-left: 15px; }
+        .container { max-width: 800px; margin: 30px auto; padding: 0 15px; }
+        .card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        h3 { color: var(--primary); margin-top: 0; border-bottom: 2px solid var(--bg); padding-bottom: 10px; }
+        input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
+        .btn { width: 100%; padding: 12px; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        .btn-crea { background: var(--accent); color: white; }
+        .btn-crea:disabled { background: #ccc; cursor: not-allowed; }
+        .btn-chiudi { background: var(--danger); color: white; padding: 8px 15px; width: auto; }
+        .poll-item { display: flex; justify-content: space-between; align-items: center; padding: 15px 0; border-bottom: 1px solid #eee; }
     </style>
 </head>
 <body id="adminBody">
 
 <nav>
-    <div style="font-weight: bold;">🛠️ Pannello di Controllo Admin</div>
+    <div style="font-weight: bold;">🛠️ Pannello Admin</div>
     <div>
-        <a href="index.html" style="color: white; text-decoration: none; margin-right: 15px;">Catalogo</a>
-        <a href="sondaggi.html" style="color: #e67e22; text-decoration: none;">Vai ai Sondaggi</a>
+        <a href="index.html">Catalogo</a>
+        <a href="sondaggi.html">Vedi Sondaggi</a>
     </div>
 </nav>
 
 <div class="container">
     <div class="card">
-        <h3>🚀 Avvia Nuova Sessione</h3>
-        <p>Imposta il numero di giocatori per filtrare i giochi nel sondaggio.</p>
-        <input type="number" id="numGiocatori" placeholder="Giocatori (es. 4)" min="1">
-        <button class="btn-crea" onclick="creaSondaggio()">Crea Sondaggio</button>
+        <h3>🚀 Nuovo Sondaggio</h3>
+        <div id="avviso-attivo" style="color: var(--danger); font-weight: bold; margin-bottom: 10px; display: none;">
+            ⚠️ C'è già un sondaggio attivo! Chiudilo per crearne uno nuovo.
+        </div>
+        <input type="number" id="numGiocatori" placeholder="Numero Giocatori (es. 4)">
+        <button id="btnCreazione" class="btn btn-crea" onclick="creaSondaggio()">AVVIA SESSIONE</button>
     </div>
 
     <div class="card">
-        <h3>📊 Sondaggi Attivi</h3>
-        <div id="listaSondaggi">Caricamento...</div>
-    </div>
-
-    <div class="card">
-        <h3>📝 Registro Voti Ricevuti</h3>
-        <button class="btn-info" onclick="mostraVoti()">Aggiorna/Mostra Tutti i Voti</button>
-        <div id="areaVoti" style="margin-top:20px;"></div>
+        <h3>📊 Gestione Attivi</h3>
+        <div id="listaSondaggi"></div>
     </div>
 </div>
 
 <script>
-    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyBVH44nqpTmS8o8i1mzlEdgUPhAfp8EiG0hvmJOiGigWR0NO3aajMjhtNHcWpwOt4z/exec"; // <--- INSERISCI IL TUO URL
+    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyBVH44nqpTmS8o8i1mzlEdgUPhAfp8EiG0hvmJOiGigWR0NO3aajMjhtNHcWpwOt4z/exec";
     const PASSWORD_CORRETTA = "newtech1";
-    let datiRicevuti = { sondaggi: [], voti: [] };
+    let dati = { sondaggi: [] };
 
-    // CONTROLLO PASSWORD
     function verificaAccesso() {
-        const pass = prompt("Inserisci la password Admin per accedere:");
-        if (pass === PASSWORD_CORRETTA) {
+        if (prompt("Password:") === PASSWORD_CORRETTA) {
             document.getElementById('adminBody').style.display = 'block';
             caricaDati();
         } else {
-            alert("Password Errata! Accesso Negato.");
+            alert("Negato!");
             window.location.href = "index.html";
         }
     }
 
     async function caricaDati() {
         const res = await fetch(WEB_APP_URL);
-        datiRicevuti = await res.json();
+        dati = await res.json();
         
         const lista = document.getElementById('listaSondaggi');
-        lista.innerHTML = '';
+        const btnCrea = document.getElementById('btnCreazione');
+        const avviso = document.getElementById('avviso-attivo');
         
-        const attivi = datiRicevuti.sondaggi.filter(s => s.stato === "Attivo");
-        if(attivi.length === 0) lista.innerHTML = "Nessun sondaggio attivo.";
-
-        attivi.forEach(s => {
-            lista.innerHTML += `
-                <div class="poll-row">
-                    <span><strong>Sondaggio ID: ${s.id.slice(-4)}</strong> (${s.giocatori} Giocatori - Creato il ${s.data})</span>
-                    <button class="btn-chiudi" onclick="chiudiSondaggio('${s.id}')">Termina</button>
+        const attivo = dati.sondaggi.find(s => s.stato === "Attivo");
+        
+        if(attivo) {
+            btnCrea.disabled = true;
+            avviso.style.display = 'block';
+            lista.innerHTML = `
+                <div class="poll-item">
+                    <span>Sondaggio per ${attivo.giocatori} giocatori (${attivo.data})</span>
+                    <button class="btn btn-chiudi" onclick="chiudi('${attivo.id}')">CHIUDI</button>
                 </div>`;
-        });
+        } else {
+            btnCrea.disabled = false;
+            avviso.style.display = 'none';
+            lista.innerHTML = "Nessun sondaggio attivo.";
+        }
     }
 
     async function creaSondaggio() {
         const n = document.getElementById('numGiocatori').value;
-        if(!n) return alert("Specifica il numero di giocatori!");
-        
-        await fetch(WEB_APP_URL, {
-            method: 'POST',
-            body: JSON.stringify({ azione: "creaSondaggio", giocatori: n })
-        });
-        alert("Sondaggio inviato!");
+        if(!n) return alert("Inserisci i giocatori!");
+        await fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ azione: "creaSondaggio", giocatori: n }) });
         caricaDati();
     }
 
-    async function chiudiSondaggio(id) {
-        if(!confirm("Vuoi chiudere il sondaggio? Gli utenti non potranno più votare.")) return;
-        await fetch(WEB_APP_URL, {
-            method: 'POST',
-            body: JSON.stringify({ azione: "chiudiSondaggio", id: id })
-        });
+    async function chiudi(id) {
+        await fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ azione: "chiudiSondaggio", id: id }) });
         caricaDati();
     }
 
-    // FUNZIONE PER MOSTRARE TUTTI I VOTI
-    function mostraVoti() {
-        const area = document.getElementById('areaVoti');
-        if (datiRicevuti.voti.length === 0) {
-            area.innerHTML = "<p>Nessun voto nel database.</p>";
-            return;
-        }
-
-        let html = `<table>
-                        <thead>
-                            <tr>
-                                <th>Utente</th>
-                                <th>Gioco Votato</th>
-                                <th>ID Sondaggio</th>
-                            </tr>
-                        </thead>
-                        <tbody>`;
-        
-        datiRicevuti.voti.forEach(v => {
-            html += `<tr>
-                        <td><strong>${v.username}</strong></td>
-                        <td>${v.gioco}</td>
-                        <td>${v.idSondaggio.slice(-4)}</td>
-                    </tr>`;
-        });
-
-        html += "</tbody></table>";
-        area.innerHTML = html;
-    }
-
-    // Avvio
     verificaAccesso();
 </script>
-
 </body>
 </html>
