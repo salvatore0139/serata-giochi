@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Admin - Gestione Sondaggi</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { font-family: sans-serif; padding: 20px; background: #f0f2f5; }
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        button { background: #007bff; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; }
+        button.close-btn { background: #dc3545; }
+        input { padding: 8px; margin-right: 10px; border: 1px solid #ccc; border-radius: 4px; }
+        .poll-item { border-bottom: 1px solid #eee; padding: 10px 0; display: flex; justify-content: space-between; align-items: center; }
+    </style>
+</head>
+<body>
+    <h1>Pannello Admin</h1>
+
+    <div class="card">
+        <h3>Crea Nuovo Sondaggio</h3>
+        <input type="number" id="numGiocatori" placeholder="Numero Giocatori (es. 4)">
+        <button onclick="creaSondaggio()">Avvia Sondaggio</button>
+    </div>
+
+    <div class="card">
+        <h3>Sondaggi In Corso</h3>
+        <div id="listaSondaggi">Caricamento...</div>
+    </div>
+
+    <script>
+        const WEB_APP_URL = "INSERISCI_QUI_IL_TUO_URL_DI_GOOGLE_APPS_SCRIPT";
+
+        async function caricaSondaggi() {
+            const res = await fetch(WEB_APP_URL);
+            const data = await res.json();
+            const lista = document.getElementById('listaSondaggi');
+            lista.innerHTML = '';
+            
+            data.sondaggi.filter(s => s.stato === "Attivo").forEach(s => {
+                lista.innerHTML += `
+                    <div class="poll-item">
+                        <span>Sondaggio del ${s.data} - Filtro: ${s.giocatori} giocatori</span>
+                        <button class="close-btn" onclick="chiudiSondaggio('${s.id}')">Chiudi</button>
+                    </div>`;
+            });
+        }
+
+        async function creaSondaggio() {
+            const n = document.getElementById('numGiocatori').value;
+            if(!n) return alert("Inserisci il numero di giocatori!");
+            
+            await fetch(WEB_APP_URL, {
+                method: 'POST',
+                body: JSON.stringify({ azione: "creaSondaggio", giocatori: n })
+            });
+            alert("Sondaggio creato!");
+            caricaSondaggi();
+        }
+
+        async function chiudiSondaggio(id) {
+            if(!confirm("Vuoi davvero chiudere questo sondaggio?")) return;
+            await fetch(WEB_APP_URL, {
+                method: 'POST',
+                body: JSON.stringify({ azione: "chiudiSondaggio", id: id })
+            });
+            caricaSondaggi();
+        }
+
+        caricaSondaggi();
+    </script>
+</body>
+</html>
