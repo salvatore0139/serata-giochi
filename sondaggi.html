@@ -63,6 +63,11 @@
     </div>
 
     <div id="listaSondaggi">Caricamento sondaggi in corso...</div>
+<hr style="margin-top: 40px;">
+<div id="classifica" class="card" style="background: #fff; padding: 20px; border-radius: 12px; margin-top: 20px;">
+    <h3>📊 Risultati in Tempo Reale</h3>
+    <div id="risultatiClassifica">Caricamento risultati...</div>
+</div>
 </div>
 
 <script>
@@ -104,6 +109,36 @@
         }
     }
 
+    function calcolaClassifica() {
+    const area = document.getElementById('risultatiClassifica');
+    if (datiSondaggi.voti.length === 0) {
+        area.innerHTML = "<p>Nessun voto ancora pervenuto.</p>";
+        return;
+    }
+
+    // Contiamo i voti per ogni gioco
+    const conteggio = {};
+    datiSondaggi.voti.forEach(v => {
+        conteggio[v.gioco] = (conteggio[v.gioco] || 0) + 1;
+    });
+
+    // Ordiniamo per chi ha più voti
+    const classificaOrdinata = Object.entries(conteggio).sort((a, b) => b[1] - a[1]);
+
+    let html = "<ul style='list-style: none; padding: 0;'>";
+    classificaOrdinata.forEach(([gioco, voti]) => {
+        html += `<li style="padding: 10px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between;">
+                    <span><strong>${gioco}</strong></span>
+                    <span style="background: var(--accent); color: white; padding: 2px 10px; border-radius: 15px;">${voti} voti</span>
+                 </li>`;
+    });
+    html += "</ul>";
+    area.innerHTML = html;
+}
+
+// Chiama questa funzione dentro renderizzaSondaggi() alla fine!
+// Inserisci calcolaClassifica(); come ultima riga di renderizzaSondaggi
+    
     function renderizzaSondaggi() {
         const container = document.getElementById('listaSondaggi');
         const user = document.getElementById('username').value.trim();
@@ -162,6 +197,7 @@
             });
             container.appendChild(card);
         });
+        calcolaClassifica();
     }
 
     async function vota(idSondaggio, nomeGioco) {
