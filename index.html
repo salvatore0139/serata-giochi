@@ -55,7 +55,7 @@
         listDiv.innerHTML = "<p style='text-align:center;'>Consulto la tua ludoteca su BGG...</p>";
         
         try {
-            const response = await fetch(`https://boardgamegeek.com/xmlapi2/collection?username=${BGG_USER}&own=1&stats=1`);
+            const response = await fetch(`https://boardgamegeek.com/xmlapi2/collection?username=${BGG_USER}&own=1&stats=1&reporat=1`);
             const text = await response.text();
             const xml = new DOMParser().parseFromString(text, "text/xml");
             const items = Array.from(xml.querySelectorAll("item"));
