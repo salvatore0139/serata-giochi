@@ -78,61 +78,65 @@
     let TUTTI_I_GIOCHI = [];
 
     // 1. Carica tutto all'avvio
-async function inizializzaApp() {
-        const listDiv = document.getElementById('game-list');
-        try {
-            const bggUrl = `https://boardgamegeek.com/xmlapi2/collection?username=${BGG_USER}&own=1&stats=1`;
-            
-            // Usiamo AllOrigins per bypassare il blocco del browser (CORS)
-            const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(bggUrl)}`;
-            
-            console.log("Richiesta inviata al proxy...");
-            const response = await fetch(proxyUrl);
-            const json = await response.json();
-            
-            // AllOrigins mette il contenuto dentro la variabile 'contents'
-            const xmlText = json.contents;
-
-            if (!xmlText) {
-                listDiv.innerHTML = "<p>Errore: Il proxy non ha restituito dati.</p>";
-                return;
+    async function inizializzaApp() {
+            const listDiv = document.getElementById('game-list');
+            try {
+                const bggUrl = `https://boardgamegeek.com/xmlapi2/collection?username=${BGG_USER}&own=1&stats=1`;
+                // Cambiamo leggermente il proxy per vedere se questo risponde meglio
+                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(bggUrl)}&t=${Date.now()}`;
+                
+                const response = await fetch(proxyUrl);
+                
+                if (!response.ok) throw new Error("Risposta del server non valida");
+                
+                const json = await response.json();
+                
+                // Verifichiamo che il proxy abbia effettivamente restituito qualcosa
+                if (!json || !json.contents) {
+                    listDiv.innerHTML = "<p style='text-align:center;'>Il server BGG è occupato. <br><button onclick='location.reload()' style='padding:10px; margin-top:10px; cursor:pointer;'>🔄 Riprova il caricamento</button></p>";
+                    return;
+                }
+    
+                const xmlText = json.contents;
+    
+                if (xmlText.includes("message") && xmlText.includes("processed")) {
+                    listDiv.innerHTML = "<p style='color:orange; text-align:center;'>⏳ BGG sta ancora preparando i tuoi dati... <br>Riprova tra 15 secondi.</p>";
+                    return;
+                }
+    
+                const parser = new DOMParser();
+                const xml = parser.parseFromString(xmlText, "text/xml");
+                const items = Array.from(xml.querySelectorAll("item"));
+    
+                if (items.length === 0) {
+                    listDiv.innerHTML = "<p style='text-align:center;'>Nessun gioco trovato. <br>Controlla che il tuo profilo BGG sia pubblico.</p>";
+                    return;
+                }
+    
+                TUTTI_I_GIOCHI = items.map(item => {
+                    const stats = item.querySelector("stats");
+                    const nameNode = item.querySelector("name");
+                    const thumbNode = item.querySelector("thumbnail");
+                    const weightNode = item.querySelector("rating averageweight");
+    
+                    return {
+                        name: nameNode ? nameNode.textContent : "Gioco Sconosciuto",
+                        thumb: thumbNode ? thumbNode.textContent : "https://via.placeholder.com/80",
+                        minP: parseInt(stats?.getAttribute("minplayers")) || 1,
+                        maxP: parseInt(stats?.getAttribute("maxplayers")) || 10,
+                        time: parseInt(stats?.getAttribute("playingtime")) || 0,
+                        weight: parseFloat(weightNode?.getAttribute("value") || 0)
+                    };
+                }).sort((a, b) => a.name.localeCompare(b.name));
+    
+                applicaFiltri();
+                caricaVoti();
+    
+            } catch (e) {
+                console.error("Errore:", e);
+                listDiv.innerHTML = "<p style='color:red; text-align:center;'>Errore di connessione.<br>BGG o il Proxy sono temporaneamente lenti.<br><button onclick='location.reload()' style='padding:5px 10px; margin-top:10px;'>Fai un tentativo di ricarico</button></p>";
             }
-
-            if (xmlText.includes("message") && xmlText.includes("processed")) {
-                listDiv.innerHTML = "<p style='color:orange; text-align:center;'>⏳ BGG sta preparando la tua lista... <br>Ricarica tra 20 secondi!</p>";
-                return;
-            }
-
-            const parser = new DOMParser();
-            const xml = parser.parseFromString(xmlText, "text/xml");
-            const items = Array.from(xml.querySelectorAll("item"));
-
-            if (items.length === 0) {
-                listDiv.innerHTML = "<p>Nessun gioco trovato. Verifica che la tua collezione sia pubblica su BGG.</p>";
-                return;
-            }
-
-            TUTTI_I_GIOCHI = items.map(item => {
-                const stats = item.querySelector("stats");
-                return {
-                    name: item.querySelector("name").textContent,
-                    thumb: item.querySelector("thumbnail") ? item.querySelector("thumbnail").textContent : "https://via.placeholder.com/80",
-                    minP: parseInt(stats.getAttribute("minplayers")),
-                    maxP: parseInt(stats.getAttribute("maxplayers")),
-                    time: parseInt(stats.getAttribute("playingtime")),
-                    weight: parseFloat(item.querySelector("rating averageweight")?.getAttribute("value") || 0)
-                };
-            }).sort((a, b) => a.name.localeCompare(b.name));
-
-            console.log("Giochi caricati con successo:", TUTTI_I_GIOCHI.length);
-            applicaFiltri();
-            caricaVoti();
-
-        } catch (e) {
-            console.error("Errore dettagliato:", e);
-            listDiv.innerHTML = "<p style='color:red;'>Errore tecnico. Apri la console (F12) per i dettagli.</p>";
         }
-    }
 
     // 2. Filtri istantanei in memoria
     function applicaFiltri() {
