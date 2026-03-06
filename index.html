@@ -79,72 +79,75 @@
 
     // 1. Carica tutto all'avvio
 async function inizializzaApp() {
-        const listDiv = document.getElementById('game-list');
-        listDiv.innerHTML = "<p id='status-log' style='text-align:center;'>Recupero collezione in corso...</p>";
-        const log = (msg) => document.getElementById('status-log').innerHTML = msg;
+    const listDiv = document.getElementById('game-list');
+    listDiv.innerHTML = "<p id='status-log' style='text-align:center;'>Recupero collezione in corso...</p>";
+    const log = (msg) => document.getElementById('status-log').innerHTML = msg;
 
-        try {
-            // Aggiungiamo un parametro casuale alla fine per evitare che il proxy ci dia dati vecchi
-            const bggUrl = `https://boardgamegeek.com/xmlapi2/collection?username=${BGG_USER}&own=1&stats=1&_=` + Date.now();
-            const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(bggUrl)}`;
-            
-            log("📡 Connessione a BoardGameGeek...");
-            const response = await fetch(proxyUrl);
-            
-            if (!response.ok) throw new Error("Il server BGG non risponde (Status: " + response.status + ")");
-
-            let xmlText = await response.text();
-            
-            // Pulizia: se la risposta inizia con spazi o caratteri strani, li togliamo
-            xmlText = xmlText.trim();
-
-            if (xmlText.includes("message") && xmlText.includes("processed")) {
-                log("⏳ BGG sta preparando i tuoi dati...<br><b>Riprovo tra 5 secondi...</b>");
-                setTimeout(inizializzaApp, 5000);
-                return;
-            }
-
-            // Se la risposta non sembra XML (non inizia con <), c'è un problema
-            if (!xmlText.startsWith("<?xml") && !xmlText.startsWith("<items")) {
-                console.log("Dati ricevuti strani:", xmlText); // Controlla in console F12
-                throw new Error("BGG ha inviato una risposta non valida. Riprova tra poco.");
-            }
-
-            log("📊 Analisi dei giochi...");
-            const parser = new DOMParser();
-            const xml = parser.parseFromString(xmlText, "text/xml");
-            
-            const items = Array.from(xml.querySelectorAll("item"));
-
-            if (items.length === 0) {
-                // A volte BGG restituisce un XML valido ma vuoto se il caricamento fallisce
-                log("⚠️ Nessun gioco trovato. <br>Assicurati che i tuoi giochi su BGG siano segnati come 'OWNED'.");
-                return;
-            }
-
-            TUTTI_I_GIOCHI = items.map(item => {
-                const stats = item.querySelector("stats");
-                const nameNode = item.querySelector("name");
-                return {
-                    name: nameNode ? nameNode.textContent : "Gioco senza titolo",
-                    thumb: item.querySelector("thumbnail")?.textContent || "https://via.placeholder.com/80",
-                    minP: parseInt(stats?.getAttribute("minplayers")) || 1,
-                    maxP: parseInt(stats?.getAttribute("maxplayers")) || 10,
-                    time: parseInt(stats?.getAttribute("playingtime")) || 0,
-                    weight: parseFloat(item.querySelector("rating averageweight")?.getAttribute("value") || 0)
-                };
-            }).sort((a, b) => a.name.localeCompare(b.name));
-
-            log("✅ Caricamento completato!");
-            applicaFiltri();
-            caricaVoti();
-
-        } catch (e) {
-            console.error("Dettaglio Errore:", e);
-            log("❌ Errore: " + e.message);
-            listDiv.innerHTML += `<button onclick="location.reload()" style="display:block; margin:10px auto; padding:10px; background:#e94560; color:white; border:none; border-radius:5px; cursor:pointer;">🔄 RIPROVA</button>`;
+    try {
+        // Proviamo ThingProxy, un ponte diverso e più "silenzioso"
+        const bggUrl = `https://boardgamegeek.com/xmlapi2/collection?username=${BGG_USER}&own=1&stats=1`;
+        const proxyUrl = `https://thingproxy.freeboard.io/fetch/${encodeURIComponent(bggUrl)}`;
+        
+        log("📡 Connessione via ThingProxy...");
+        const response = await fetch(proxyUrl);
+        
+        // Se ThingProxy fallisce (spesso ha limiti di traffico), usiamo AllOrigins come backup ma in modalità RAW
+        if (!response.ok) {
+            log("🔄 Primo ponte occupato, provo il secondo...");
+            const backupUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(bggUrl)}&_=${Date.now()}`;
+            const backupResp = await fetch(backupUrl);
+            if (!backupResp.ok) throw new Error("Entrambi i server proxy sono congestionati.");
+            var xmlText = await backupResp.text();
+        } else {
+            var xmlText = await response.text();
         }
+
+        xmlText = xmlText.trim();
+
+        if (xmlText.includes("message") && xmlText.includes("processed")) {
+            log("⏳ BGG sta preparando i tuoi dati...<br><b>Riprovo tra 5 secondi...</b>");
+            setTimeout(inizializzaApp, 5000);
+            return;
+        }
+
+        // Se non inizia con XML, potrebbe essere un errore del proxy
+        if (!xmlText.startsWith("<?xml") && !xmlText.startsWith("<items")) {
+            throw new Error("Dati ricevuti non validi. Riprova tra un istante.");
+        }
+
+        log("📊 Analisi dei giochi...");
+        const parser = new DOMParser();
+        const xml = parser.parseFromString(xmlText, "text/xml");
+        const items = Array.from(xml.querySelectorAll("item"));
+
+        if (items.length === 0) {
+            log("⚠️ Nessun gioco trovato. <br>Verifica che la tua collezione BGG sia pubblica.");
+            return;
+        }
+
+        TUTTI_I_GIOCHI = items.map(item => {
+            const stats = item.querySelector("stats");
+            const nameNode = item.querySelector("name");
+            return {
+                name: nameNode ? nameNode.textContent : "Gioco senza titolo",
+                thumb: item.querySelector("thumbnail")?.textContent || "https://via.placeholder.com/80",
+                minP: parseInt(stats?.getAttribute("minplayers")) || 1,
+                maxP: parseInt(stats?.getAttribute("maxplayers")) || 10,
+                time: parseInt(stats?.getAttribute("playingtime")) || 0,
+                weight: parseFloat(item.querySelector("rating averageweight")?.getAttribute("value") || 0)
+            };
+        }).sort((a, b) => a.name.localeCompare(b.name));
+
+        log("✅ Caricamento completato!");
+        applicaFiltri();
+        caricaVoti();
+
+    } catch (e) {
+        console.error("Dettaglio Errore:", e);
+        log("❌ Errore: " + e.message);
+        listDiv.innerHTML += `<button onclick="location.reload()" style="display:block; margin:10px auto; padding:10px; background:#e94560; color:white; border:none; border-radius:5px; cursor:pointer;">🔄 RIPROVA</button>`;
     }
+}
     
     // 2. Filtri istantanei in memoria
     function applicaFiltri() {
