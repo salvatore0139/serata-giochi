@@ -153,7 +153,8 @@
     function aggiornaClassifica() {
         const area = document.getElementById('classifica-voti');
         const conteggio = {};
-        datiSondaggi.voti.forEach(v => { conteggio[v.gioco] = (conteggio[v.gioco] || 0) + 1; });
+        const attivo = datiSondaggi.sondaggi.find(s => s.stato === "Attivo");
+        attivo.voti.forEach(v => { conteggio[v.gioco] = (conteggio[v.gioco] || 0) + 1; });
         const ordinata = Object.entries(conteggio).sort((a,b) => b[1] - a[1]);
         
         area.innerHTML = ordinata.length ? ordinata.map(([gioco, voti]) => `
