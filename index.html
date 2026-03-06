@@ -5,18 +5,35 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ludoteca Salvatore0139</title>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #1a1a2e; color: white; margin: 0; padding: 20px; }
-        .container { max-width: 700px; margin: auto; background: #16213e; padding: 25px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-        h1 { text-align: center; color: #e94560; }
-        .filter-section { background: #0f3460; padding: 20px; border-radius: 15px; margin-bottom: 20px; }
-        .game-card { display: flex; align-items: center; background: #1a1a2e; margin-bottom: 10px; padding: 15px; border-radius: 12px; border-left: 5px solid #e94560; }
-        .game-img { width: 70px; height: 70px; border-radius: 8px; object-fit: cover; margin-right: 15px; }
+        :root { --primary: #e94560; --bg: #1a1a2e; --card: #16213e; --input: #0f3460; --text: #ffffff; }
+        body { font-family: 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; }
+        .container { max-width: 800px; margin: auto; background: var(--card); padding: 25px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        h1 { text-align: center; color: var(--primary); margin-bottom: 30px; }
+        
+        /* Pannello Filtri */
+        .filter-section { background: var(--input); padding: 20px; border-radius: 15px; margin-bottom: 25px; }
+        .input-group { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+        input { padding: 12px; border-radius: 8px; border: none; background: var(--bg); color: white; width: 100%; box-sizing: border-box; }
+        input:focus { outline: 2px solid var(--primary); }
+        
+        /* Lista Giochi */
+        .game-card { display: flex; align-items: center; background: var(--bg); margin-bottom: 15px; padding: 15px; border-radius: 12px; border-left: 5px solid var(--primary); transition: transform 0.2s; }
+        .game-card:hover { transform: scale(1.02); }
+        .game-img { width: 80px; height: 80px; border-radius: 10px; object-fit: cover; margin-right: 20px; box-shadow: 0 4px 8px rgba(0,0,0,0.3); }
         .game-info { flex-grow: 1; }
-        .vote-btn { background: #e94560; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; }
-        input { padding: 10px; margin: 5px 0; width: 100%; border-radius: 5px; border: none; box-sizing: border-box; }
-        #voti-ricevuti { margin-top: 30px; background: #0f3460; padding: 15px; border-radius: 15px; }
-        .admin-panel { margin-top: 50px; border-top: 1px dashed #555; padding-top: 20px; font-size: 0.8em; text-align: center; }
-        .reset-btn { background: #555; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 4px; }
+        .game-info strong { font-size: 1.1em; display: block; margin-bottom: 5px; }
+        .badge { background: var(--input); padding: 3px 8px; border-radius: 5px; font-size: 0.8em; margin-right: 5px; }
+
+        /* Votazione */
+        .vote-btn { background: var(--primary); color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        .vote-btn:disabled { background: #555; cursor: not-allowed; }
+        #lista-voti { margin-top: 20px; background: rgba(255,255,255,0.05); padding: 15px; border-radius: 10px; }
+        .voto-item { padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; }
+
+        /* Admin */
+        .admin-panel { margin-top: 50px; text-align: center; border-top: 1px dashed #444; padding-top: 20px; }
+        .reset-btn { background: transparent; color: #888; border: 1px solid #444; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-size: 0.8em; }
+        .reset-btn:hover { color: var(--primary); border-color: var(--primary); }
     </style>
 </head>
 <body>
@@ -25,97 +42,183 @@
     <h1>🎲 Serata Salvatore0139</h1>
     
     <div class="filter-section">
-        <input type="text" id="voter-name" placeholder="👤 Inserisci il tuo nome per votare">
-        <div style="display:flex; gap:10px; margin-top:10px;">
-            <input type="number" id="f-players" placeholder="Giocatori" value="4">
-            <input type="number" id="f-time" placeholder="Minuti max" value="120">
+        <input type="text" id="voter-name" placeholder="👤 Inserisci il tuo nome (Obbligatorio per votare)">
+        
+        <div class="input-group">
+            <div>
+                <label style="font-size: 0.8em;">👥 Giocatori</label>
+                <input type="number" id="f-players" value="4" oninput="applicaFiltri()">
+            </div>
+            <div>
+                <label style="font-size: 0.8em;">⏱ Minuti Max</label>
+                <input type="number" id="f-time" value="120" oninput="applicaFiltri()">
+            </div>
         </div>
-        <button onclick="caricaGiochi()" style="width:100%; background:#e94560; color:white; border:none; padding:12px; margin-top:10px; border-radius:8px; cursor:pointer; font-weight:bold;">🔍 CERCA GIOCHI</button>
+        <input type="text" id="f-search" placeholder="🔍 Cerca per titolo..." oninput="applicaFiltri()" style="margin-top: 15px;">
     </div>
 
-    <div id="game-list"></div>
+    <div id="game-list">
+        <p style="text-align: center;">📦 Caricamento ludoteca da BGG...</p>
+    </div>
 
     <div id="voti-ricevuti">
-        <h3>📊 Classifica Voti:</h3>
-        <div id="lista-voti">Caricamento...</div>
+        <h3>📊 Voti Attuali:</h3>
+        <div id="lista-voti">Caricamento voti...</div>
     </div>
 
     <div class="admin-panel">
-        <p>Area Proprietario</p>
-        <button class="reset-btn" onclick="resetVoti()">🗑️ Resetta tutto il sondaggio</button>
+        <button class="reset-btn" onclick="resetVoti()">🗑️ Resetta Sondaggio (Proprietario)</button>
     </div>
 </div>
 
 <script>
     const BGG_USER = "Salvatore0139";
     const DB_URL = "https://script.google.com/macros/s/AKfycbyBVH44nqpTmS8o8i1mzlEdgUPhAfp8EiG0hvmJOiGigWR0NO3aajMjhtNHcWpwOt4z/exec";
-
-    async function caricaGiochi() {
-    const listDiv = document.getElementById('game-list');
-    listDiv.innerHTML = "<p style='text-align:center;'>BGG sta preparando i dati... se è la prima volta, attendi 30 secondi e riclicca.</p>";
     
-    try {
-        const response = await fetch(`https://boardgamegeek.com/xmlapi2/collection?username=${BGG_USER}&own=1&stats=1`);
-        const text = await response.text();
-        
-        // Se BGG risponde con "Please try again later"
-        if (text.includes("message") && text.includes("processed")) {
-            listDiv.innerHTML = "<p style='color:orange; text-align:center;'>⏳ BGG sta ancora elaborando la tua collezione. <br>Riprova tra 20 secondi!</p>";
+    let TUTTI_I_GIOCHI = [];
+
+    // 1. Carica tutto all'avvio
+    async function inizializzaApp() {
+        try {
+            const response = await fetch(`https://boardgamegeek.com/xmlapi2/collection?username=${BGG_USER}&own=1&stats=1`);
+            const text = await response.text();
+            
+            if (text.includes("message") && text.includes("processed")) {
+                document.getElementById('game-list').innerHTML = "<p style='color:orange; text-align:center;'>⏳ BGG sta preparando i tuoi dati. <br>Aggiorna la pagina tra 30 secondi!</p>";
+                return;
+            }
+
+            const xml = new DOMParser().parseFromString(text, "text/xml");
+            const items = Array.from(xml.querySelectorAll("item"));
+
+            TUTTI_I_GIOCHI = items.map(item => {
+                const stats = item.querySelector("stats");
+                return {
+                    name: item.querySelector("name").textContent,
+                    thumb: item.querySelector("thumbnail") ? item.querySelector("thumbnail").textContent : "https://via.placeholder.com/80",
+                    minP: parseInt(stats.getAttribute("minplayers")),
+                    maxP: parseInt(stats.getAttribute("maxplayers")),
+                    time: parseInt(stats.getAttribute("playingtime")),
+                    weight: parseFloat(item.querySelector("rating averageweight")?.getAttribute("value") || 0)
+                };
+            }).sort((a, b) => a.name.localeCompare(b.name));
+
+            applicaFiltri();
+            caricaVoti();
+
+        } catch (e) {
+            document.getElementById('game-list').innerHTML = "Errore di connessione a BGG.";
+        }
+    }
+
+    // 2. Filtri istantanei in memoria
+    function applicaFiltri() {
+        const listDiv = document.getElementById('game-list');
+        const pFilter = parseInt(document.getElementById('f-players').value) || 0;
+        const tFilter = parseInt(document.getElementById('f-time').value) || 999;
+        const sFilter = document.getElementById('f-search').value.toLowerCase();
+
+        const filtrati = TUTTI_I_GIOCHI.filter(g => 
+            pFilter >= g.minP && pFilter <= g.maxP && 
+            g.time <= tFilter && 
+            g.name.toLowerCase().includes(sFilter)
+        );
+
+        listDiv.innerHTML = "";
+        if (filtrati.length === 0) {
+            listDiv.innerHTML = "<p style='text-align:center;'>Nessun gioco trovato.</p>";
             return;
         }
 
-        const xml = new DOMParser().parseFromString(text, "text/xml");
-        const items = Array.from(xml.querySelectorAll("item"));
-
-        // ... resto del codice per filtrare e mostrare i giochi ...
-        renderizzaGiochi(items); 
-
-    } catch (e) {
-        listDiv.innerHTML = "Errore di connessione. Riprova.";
+        filtrati.forEach(g => {
+            listDiv.innerHTML += `
+                <div class="game-card">
+                    <img src="${g.thumb}" class="game-img">
+                    <div class="game-info">
+                        <strong>${g.name}</strong>
+                        <span class="badge">👥 ${g.minP}-${g.maxP}</span>
+                        <span class="badge">⏱ ${g.time}m</span>
+                        <span class="badge">🧠 ${g.weight.toFixed(1)}</span>
+                    </div>
+                    <button class="vote-btn" onclick="vota('${g.name.replace(/'/g, "\\'")}')">VOTA</button>
+                </div>`;
+        });
     }
-}
 
+    // 3. Database: Invia Voto
     async function vota(gameName) {
         const user = document.getElementById('voter-name').value.trim();
-        if (!user) return alert("Inserisci il tuo nome prima di votare!");
-
-        await fetch(DB_URL, {
-            method: 'POST',
-            mode: 'no-cors',
-            body: JSON.stringify({username: user, game: gameName, vote: 1})
-        });
-        alert("Voto registrato!");
-        setTimeout(caricaVoti, 1000);
-    }
-
-    async function caricaVoti() {
-        const response = await fetch(DB_URL);
-        const data = await response.json();
-        const lista = document.getElementById('lista-voti');
-        if(data.length <= 1) {
-            lista.innerHTML = "Nessun voto presente.";
+        if (!user) {
+            alert("Devi inserire il tuo nome in alto per votare!");
+            document.getElementById('voter-name').focus();
             return;
         }
-        // Saltiamo la prima riga (intestazione)
-        lista.innerHTML = data.slice(1).reverse().map(row => `• <b>${row[1]}</b> vuole giocare a <i>${row[2]}</i>`).join('<br>');
+
+        if(!confirm(`Vuoi votare per ${gameName}?`)) return;
+
+        // Visual Feedback
+        const btn = event.target;
+        btn.disabled = true;
+        btn.innerText = "⏳...";
+
+        try {
+            await fetch(DB_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                body: JSON.stringify({username: user, game: gameName, vote: 1})
+            });
+            alert("Voto inviato con successo!");
+            caricaVoti();
+        } catch (e) {
+            alert("Errore nell'invio del voto.");
+        } finally {
+            btn.disabled = false;
+            btn.innerText = "VOTA";
+        }
     }
 
+    // 4. Database: Leggi Voti
+    async function caricaVoti() {
+        try {
+            const response = await fetch(DB_URL);
+            const data = await response.json();
+            const lista = document.getElementById('lista-voti');
+            
+            if(data.length <= 1) {
+                lista.innerHTML = "<i>Nessun voto presente. Sii il primo!</i>";
+                return;
+            }
+
+            // Mostra ultimi voti in alto
+            lista.innerHTML = data.slice(1).reverse().map(row => `
+                <div class="voto-item">
+                    <span>👤 <b>${row[1]}</b></span>
+                    <span>🎯 ${row[2]}</span>
+                </div>
+            `).join('');
+        } catch (e) {
+            document.getElementById('lista-voti').innerHTML = "Impossibile caricare i voti.";
+        }
+    }
+
+    // 5. Database: Reset
     async function resetVoti() {
-        const pass = prompt("Inserisci password admin per resettare:");
-        if (pass === "1234") { // Puoi cambiare la password qui
+        const pass = prompt("Inserisci password per svuotare il sondaggio:");
+        if (pass === "1234") {
             await fetch(DB_URL, {
                 method: 'POST',
                 mode: 'no-cors',
                 body: JSON.stringify({action: "reset"})
             });
-            alert("Sondaggio svuotato!");
+            alert("Database resettato!");
             location.reload();
-        } else {
+        } else if (pass !== null) {
             alert("Password errata!");
         }
     }
 
-    caricaVoti();
+    // Inizializza
+    inizializzaApp();
 </script>
 
 </body>
