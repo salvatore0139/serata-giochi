@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vota il Gioco - Sessione di Gioco</title>
+    <style>
+        :root { --primary: #2c3e50; --accent: #e67e22; --bg: #f4f7f6; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); color: var(--primary); margin: 0; padding: 20px; }
+        .container { max-width: 800px; margin: auto; }
+        
+        /* Header e Login */
+        .login-box { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        input[type="text"], select { padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 16px; }
+        #username { width: 100%; box-sizing: border-box; margin-bottom: 10px; border: 2px solid var(--accent); }
+
+        /* Filtri */
+        .filters { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; background: #fff; padding: 15px; border-radius: 8px; }
+        
+        /* Lista Giochi */
+        .sondaggio-card { background: #fff; border-radius: 12px; padding: 20px; margin-bottom: 30px; border-left: 5px solid var(--accent); }
+        .gioco-item { display: flex; align-items: center; padding: 15px; border-bottom: 1px solid #eee; gap: 15px; }
+        .gioco-img { width: 60px; height: 60px; border-radius: 8px; object-fit: cover; }
+        .gioco-info { flex-grow: 1; }
+        .gioco-info h4 { margin: 0 0 5px 0; color: #333; }
+        .gioco-meta { font-size: 0.85em; color: #666; }
+
+        .btn-vota { background: #27ae60; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        .btn-vota:disabled { background: #bdc3c7; cursor: not-allowed; }
+        .btn-vota:hover:not(:disabled) { background: #219150; }
+        
+        .badge { background: #eee; padding: 2px 8px; border-radius: 4px; font-size: 0.8em; margin-right: 5px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="login-box">
+        <h2>Benvenuto! 🎲</h2>
+        <p>Inserisci il tuo nome per partecipare ai sondaggi attivi.</p>
+        <input type="text" id="username" placeholder="Tuo Username Unico (es: Mario88)">
+    </div>
+
+    <div id="controlli-ricerca" style="display:none;">
+        <div class="filters">
+            <select id="filterType" onchange="renderizzaSondaggi()">
+                <option value="">Tutte le Categorie</option>
+            </select>
+            <select id="filterTime" onchange="renderizzaSondaggi()">
+                <option value="999">Qualsiasi Durata</option>
+                <option value="30">Max 30 min</option>
+                <option value="60">Max 60 min</option>
+                <option value="120">Max 120 min</option>
+            </select>
+        </div>
+    </div>
+
+    <div id="listaSondaggi">Caricamento sondaggi in corso...</div>
+</div>
+
+<script>
+    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyBVH44nqpTmS8o8i1mzlEdgUPhAfp8EiG0hvmJOiGigWR0NO3aajMjhtNHcWpwOt4z/exec"; // <--- METTI IL TUO URL QUI
+    let databaseGiochi = [];
+    let datiSondaggi = { sondaggi: [], voti: [] };
+
+    // 1. Carica il tuo file JSON locale
+    async function caricaGiochi() {
+        try {
+            const response = await fetch('giochi.json');
+            databaseGiochi = await response.json();
+             popolaFiltroCategorie();
+        } catch (e) {
+            console.error("Errore caricamento giochi.json", e);
+        }
+    }
+
+    function popolaFiltroCategorie() {
+        const select = document.getElementById('filterType');
+        const categorie = [...new Set(databaseGiochi.map(g => g.type))].sort();
+        categorie.forEach(cat => {
+            let opt = document.createElement('option');
+            opt.value = cat;
+            opt.innerHTML = cat;
+            select.appendChild(opt);
+        });
+    }
+
+    // 2. Recupera sondaggi e voti dal Foglio Google
+    async function aggiornaDati() {
+        try {
+            const response = await fetch(WEB_APP_URL);
+            datiSondaggi = await response.json();
+            renderizzaSondaggi();
+            document.getElementById('controlli-ricerca').style.display = 'block';
+        } catch (e) {
+            document.getElementById('listaSondaggi').innerHTML = "Errore di connessione al database.";
+        }
+    }
+
+    function renderizzaSondaggi() {
+        const container = document.getElementById('listaSondaggi');
+        const user = document.getElementById('username').value.trim();
+        const fCat = document.getElementById('filterType').value;
+        const fTime = parseInt(document.getElementById('filterTime').value);
+        
+        const sondaggiAttivi = datiSondaggi.sondaggi.filter(s => s.stato === "Attivo");
+
+        if (sondaggiAttivi.length === 0) {
+            container.innerHTML = "<p>Al momento non ci sono sondaggi aperti dall'admin.</p>";
+            return;
+        }
+
+        container.innerHTML = "";
+        
+        sondaggiAttivi.forEach(s => {
+            const card = document.createElement('div');
+            card.className = 'sondaggio-card';
+            card.innerHTML = `<h3>Sondaggio per ${s.giocatori} Giocatori</h3>`;
+
+            // Filtro 1: Numero giocatori (obbligatorio da sondaggio)
+            let filtrati = databaseGiochi.filter(g => s.giocatori >= g.minP && s.giocatori <= g.maxP);
+            
+            // Filtro 2: Categoria (opzionale da utente)
+            if(fCat) filtrati = filtrati.filter(g => g.type === fCat);
+            
+            // Filtro 3: Tempo (opzionale da utente)
+            if(fTime) filtrati = filtrati.filter(g => g.time <= fTime);
+
+            filtrati.forEach(gioco => {
+                // Controllo se l'utente ha già votato QUESTO gioco in QUESTO specifico sondaggio
+                const giaVotato = datiSondaggi.voti.some(v => 
+                    v.idSondaggio === s.id && 
+                    v.username.toLowerCase() === user.toLowerCase() && 
+                    v.gioco === gioco.name
+                );
+
+                const item = document.createElement('div');
+                item.className = 'gioco-item';
+                item.innerHTML = `
+                    <img src="${gioco.thumb}" class="gioco-img">
+                    <div class="gioco-info">
+                        <h4>${gioco.name}</h4>
+                        <div class="gioco-meta">
+                            <span class="badge">${gioco.type}</span>
+                            <span>⏱️ ${gioco.time} min</span> | <span>⚖️ ${gioco.difficulty}</span>
+                        </div>
+                    </div>
+                    <button class="btn-vota" 
+                        ${giaVotato || !user ? 'disabled' : ''} 
+                        onclick="vota('${s.id}', '${gioco.name.replace(/'/g, "\\'")}')">
+                        ${giaVotato ? 'Votato' : 'Vota'}
+                    </button>
+                `;
+                card.appendChild(item);
+            });
+            container.appendChild(card);
+        });
+    }
+
+    async function vota(idSondaggio, nomeGioco) {
+        const user = document.getElementById('username').value.trim();
+        if(!user) {
+            alert("Devi inserire un username per votare!");
+            return;
+        }
+
+        try {
+            const res = await fetch(WEB_APP_URL, {
+                method: 'POST',
+                body: JSON.stringify({
+                    azione: "vota",
+                    idSondaggio: idSondaggio,
+                    username: user,
+                    gioco: nomeGioco
+                })
+            });
+            const data = await res.json();
+            if(data.success) {
+                alert("Voto registrato con successo!");
+                aggiornaDati(); // Ricarica per bloccare il tasto
+            } else {
+                alert(data.errore);
+            }
+        } catch (e) {
+            alert("Errore durante l'invio del voto.");
+        }
+    }
+
+    // Inizializzazione
+    caricaGiochi().then(() => {
+        aggiornaDati();
+        // Auto-aggiornamento ogni 10 secondi per nuovi voti/sondaggi
+        setInterval(aggiornaDati, 10000);
+    });
+</script>
+
+</body>
+</html>
