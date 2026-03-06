@@ -56,55 +56,56 @@ let TUTTI_I_GIOCHI = [];
 
 async function inizializzaApp() {
     const listDiv = document.getElementById('game-list');
-    listDiv.innerHTML = "<p id='status-log' style='text-align:center;'>📦 Recupero giochi in corso...</p>";
+    listDiv.innerHTML = "<p id='status-log' style='text-align:center;'>📦 Caricamento ludoteca in corso...</p>";
     
+    // Proviamo a usare corsproxy.io che è molto più veloce oggi
+    const bggUrl = `https://boardgamegeek.com/xmlapi2/collection?username=Salvatore0139&own=1&stats=1`;
+    const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(bggUrl)}`;
+
     try {
-        // Usiamo l'endpoint /raw che non crasha mai con "Unexpected end of JSON"
-        // E aggiungiamo un numero casuale per saltare il blocco 401 di cache
-        const bggUrl = `https://boardgamegeek.com/xmlapi2/collection?username=${BGG_USER}&own=1&stats=1&_=${Date.now()}`;
-        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(bggUrl)}`;
-        
         const response = await fetch(proxyUrl);
-        if (!response.ok) throw new Error("Il server proxy è sovraccarico.");
+        
+        if (!response.ok) throw new Error("Errore di rete o proxy non disponibile");
 
-        const xmlText = (await response.text()).trim();
+        const xmlText = await response.text();
+        const parser = new DOMParser();
+        const xml = parser.parseFromString(xmlText, "text/xml");
 
-        // Se BGG sta ancora elaborando
-        if (xmlText.includes("message") && xmlText.includes("processed")) {
-            document.getElementById('status-log').innerHTML = "⏳ BGG sta preparando i tuoi giochi... <br>Riprovo tra 10 secondi.";
-            setTimeout(inizializzaApp, 10000);
+        // Verifichiamo se BGG sta ancora elaborando (risponde con un tag <message>)
+        if (xml.querySelector("message")) {
+            document.getElementById('status-log').innerHTML = "⏳ BGG sta preparando i dati... riprovo tra 5 secondi.";
+            setTimeout(inizializzaApp, 5000);
             return;
         }
 
-        // Analizziamo l'XML
-        const parser = new DOMParser();
-        const xml = parser.parseFromString(xmlText, "text/xml");
         const items = Array.from(xml.querySelectorAll("item"));
 
         if (items.length === 0) {
-            // Se arriviamo qui senza errori ma con 0 giochi, BGG ci sta mandando una pagina vuota
-            throw new Error("BGG ha risposto, ma la lista è vuota. Riprova tra un istante.");
+            document.getElementById('status-log').innerHTML = "⚠️ Nessun gioco trovato nell'XML. Riprova tra poco.";
+            return;
         }
 
         TUTTI_I_GIOCHI = items.map(item => {
             const stats = item.querySelector("stats");
+            // Estraiamo i dati basandoci esattamente sulla struttura che hai postato
             return {
                 name: item.querySelector("name")?.textContent || "Senza titolo",
                 thumb: item.querySelector("thumbnail")?.textContent || "https://via.placeholder.com/80",
                 minP: parseInt(stats?.getAttribute("minplayers")) || 1,
                 maxP: parseInt(stats?.getAttribute("maxplayers")) || 10,
                 time: parseInt(stats?.getAttribute("playingtime")) || 0,
-                weight: parseFloat(item.querySelector("rating averageweight")?.getAttribute("value") || 0)
+                // Il peso (weight) a volte non c'è, mettiamo 0 di default
+                weight: parseFloat(item.querySelector("rating average")?.getAttribute("value") || 0).toFixed(1)
             };
         }).sort((a, b) => a.name.localeCompare(b.name));
 
-        document.getElementById('status-log').innerHTML = "";
-        applicaFiltri();
+        document.getElementById('status-log').innerHTML = ""; // Pulizia messaggio
+        applicaFiltri(); 
         caricaVoti();
 
     } catch (e) {
-        console.error(e);
-        document.getElementById('status-log').innerHTML = `❌ Errore: ${e.message} <br><button onclick="location.reload()" style="margin-top:10px; padding:8px; cursor:pointer;">🔄 RIPROVA</button>`;
+        console.error("Dettaglio Errore:", e);
+        document.getElementById('status-log').innerHTML = `❌ Errore: ${e.message}. <br> Ricarica la pagina tra 30 secondi.`;
     }
 }
     
