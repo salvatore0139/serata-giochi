@@ -51,44 +51,29 @@
     const DB_URL = "https://script.google.com/macros/s/AKfycbyBVH44nqpTmS8o8i1mzlEdgUPhAfp8EiG0hvmJOiGigWR0NO3aajMjhtNHcWpwOt4z/exec";
 
     async function caricaGiochi() {
-        const listDiv = document.getElementById('game-list');
-        listDiv.innerHTML = "<p style='text-align:center;'>Consulto la tua ludoteca su BGG...</p>";
+    const listDiv = document.getElementById('game-list');
+    listDiv.innerHTML = "<p style='text-align:center;'>BGG sta preparando i dati... se è la prima volta, attendi 30 secondi e riclicca.</p>";
+    
+    try {
+        const response = await fetch(`https://boardgamegeek.com/xmlapi2/collection?username=${BGG_USER}&own=1&stats=1`);
+        const text = await response.text();
         
-        try {
-            const response = await fetch(`https://boardgamegeek.com/xmlapi2/collection?username=${BGG_USER}&own=1&stats=1&reporat=1`);
-            const text = await response.text();
-            const xml = new DOMParser().parseFromString(text, "text/xml");
-            const items = Array.from(xml.querySelectorAll("item"));
-
-            const pFilter = parseInt(document.getElementById('f-players').value);
-            const tFilter = parseInt(document.getElementById('f-time').value);
-
-            listDiv.innerHTML = "";
-            items.forEach(item => {
-                const name = item.querySelector("name").textContent;
-                const thumb = item.querySelector("thumbnail") ? item.querySelector("thumbnail").textContent : "https://via.placeholder.com/70";
-                const stats = item.querySelector("stats");
-                const minP = parseInt(stats.getAttribute("minplayers"));
-                const maxP = parseInt(stats.getAttribute("maxplayers"));
-                const time = parseInt(stats.getAttribute("playingtime"));
-
-                if (pFilter >= minP && pFilter <= maxP && time <= tFilter) {
-                    listDiv.innerHTML += `
-                        <div class="game-card">
-                            <img src="${thumb}" class="game-img">
-                            <div class="game-info">
-                                <strong>${name}</strong><br>
-                                <small>👥 ${minP}-${maxP} | ⏱ ${time} min</small>
-                            </div>
-                            <button class="vote-btn" onclick="vota('${name.replace(/'/g, "\\'")}')">VOTA</button>
-                        </div>`;
-                }
-            });
-            if(listDiv.innerHTML === "") listDiv.innerHTML = "Nessun gioco trovato con questi filtri.";
-        } catch (e) {
-            listDiv.innerHTML = "Errore nel caricamento. Riprova tra 5 secondi (BGG è lento).";
+        // Se BGG risponde con "Please try again later"
+        if (text.includes("message") && text.includes("processed")) {
+            listDiv.innerHTML = "<p style='color:orange; text-align:center;'>⏳ BGG sta ancora elaborando la tua collezione. <br>Riprova tra 20 secondi!</p>";
+            return;
         }
+
+        const xml = new DOMParser().parseFromString(text, "text/xml");
+        const items = Array.from(xml.querySelectorAll("item"));
+
+        // ... resto del codice per filtrare e mostrare i giochi ...
+        renderizzaGiochi(items); 
+
+    } catch (e) {
+        listDiv.innerHTML = "Errore di connessione. Riprova.";
     }
+}
 
     async function vota(gameName) {
         const user = document.getElementById('voter-name').value.trim();
