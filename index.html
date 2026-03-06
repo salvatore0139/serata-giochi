@@ -56,39 +56,64 @@ let TUTTI_I_GIOCHI = [];
 
 async function inizializzaApp() {
     const listDiv = document.getElementById('game-list');
-    try {
-        const bggUrl = `https://boardgamegeek.com/xmlapi2/collection?username=${BGG_USER}&own=1&stats=1&_=${Date.now()}`;
-        const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(bggUrl)}`;
-        
-        const response = await fetch(proxyUrl);
-        let xmlText = (await response.text()).trim();
+    listDiv.innerHTML = "<p id='status-log' style='text-align:center;'>🚀 Connessione alla ludoteca...</p>";
+    const log = (msg) => document.getElementById('status-log').innerHTML = msg;
 
-        if (xmlText.includes("message") && xmlText.includes("processed")) {
-            listDiv.innerHTML = "<p style='text-align:center;'>⏳ BGG sta preparando i dati... riprovo tra 5 secondi.</p>";
-            setTimeout(inizializzaApp, 5000); return;
+    const bggUrl = `https://boardgamegeek.com/xmlapi2/collection?username=${BGG_USER}&own=1&stats=1`;
+    
+    // Lista di proxy di emergenza
+    const proxies = [
+        `https://api.allorigins.win/raw?url=${encodeURIComponent(bggUrl)}&_=${Date.now()}`,
+        `https://cors-proxy.htmldriven.com/?url=${encodeURIComponent(bggUrl)}`,
+        `https://corsproxy.io/?${encodeURIComponent(bggUrl)}`
+    ];
+
+    for (let proxyUrl of proxies) {
+        try {
+            log("📡 Tentativo di connessione...");
+            const response = await fetch(proxyUrl);
+            
+            if (!response.ok) continue; // Se questo proxy fallisce, passa al prossimo nel ciclo
+
+            let xmlText = await response.text();
+            xmlText = xmlText.trim();
+
+            if (xmlText.includes("message") && xmlText.includes("processed")) {
+                log("⏳ BGG sta preparando i dati...<br><b>Riprovo tra 5 secondi...</b>");
+                setTimeout(inizializzaApp, 5000);
+                return;
+            }
+
+            if (xmlText.startsWith("<?xml") || xmlText.startsWith("<items")) {
+                const parser = new DOMParser();
+                const xml = parser.parseFromString(xmlText, "text/xml");
+                const items = Array.from(xml.querySelectorAll("item"));
+
+                TUTTI_I_GIOCHI = items.map(item => {
+                    const stats = item.querySelector("stats");
+                    return {
+                        name: item.querySelector("name")?.textContent || "Senza titolo",
+                        thumb: item.querySelector("thumbnail")?.textContent || "https://via.placeholder.com/80",
+                        minP: parseInt(stats?.getAttribute("minplayers")) || 1,
+                        maxP: parseInt(stats?.getAttribute("maxplayers")) || 10,
+                        time: parseInt(stats?.getAttribute("playingtime")) || 0,
+                        weight: parseFloat(item.querySelector("rating averageweight")?.getAttribute("value") || 0)
+                    };
+                }).sort((a, b) => a.name.localeCompare(b.name));
+
+                log("✅ Caricamento completato!");
+                applicaFiltri();
+                caricaVoti();
+                return; // ESCE DAL CICLO PERCHÉ ABBIAMO FINITO CON SUCCESSO
+            }
+        } catch (e) {
+            console.warn("Proxy fallito, provo il successivo...");
         }
-
-        const parser = new DOMParser();
-        const xml = parser.parseFromString(xmlText, "text/xml");
-        const items = Array.from(xml.querySelectorAll("item"));
-
-        TUTTI_I_GIOCHI = items.map(item => {
-            const stats = item.querySelector("stats");
-            return {
-                name: item.querySelector("name")?.textContent || "Gioco senza titolo",
-                thumb: item.querySelector("thumbnail")?.textContent || "https://via.placeholder.com/80",
-                minP: parseInt(stats?.getAttribute("minplayers")) || 1,
-                maxP: parseInt(stats?.getAttribute("maxplayers")) || 10,
-                time: parseInt(stats?.getAttribute("playingtime")) || 0,
-                weight: parseFloat(item.querySelector("rating averageweight")?.getAttribute("value") || 0)
-            };
-        }).sort((a,b) => a.name.localeCompare(b.name));
-
-        applicaFiltri();
-        caricaVoti();
-    } catch(e) {
-        listDiv.innerHTML = "❌ Errore caricamento BGG. Riprova tra poco.";
     }
+
+    // Se arriviamo qui, tutti i proxy hanno fallito
+    log("❌ Tutti i server sono sovraccarichi.");
+    listDiv.innerHTML += `<button onclick="location.reload()" style="display:block; margin:10px auto; padding:10px; background:#e94560; color:white; border:none; border-radius:5px; cursor:pointer;">🔄 RIPROVA TUTTO</button>`;
 }
 
 function applicaFiltri() {
