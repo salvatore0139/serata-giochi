@@ -86,91 +86,171 @@
 </div>
 
 <script>
-    const WEB_APP_URL = "IL_TUO_URL_APPS_SCRIPT";
+    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyBVH44nqpTmS8o8i1mzlEdgUPhAfp8EiG0hvmJOiGigWR0NO3aajMjhtNHcWpwOt4z/exec"; // <--- METTI IL TUO URL QUI
     let databaseGiochi = [];
     let datiSondaggi = { sondaggi: [], voti: [] };
 
-    async function inizializza() {
-        const respG = await fetch('giochi.json');
-        databaseGiochi = await respG.json();
-        
-        // Popola categorie
-        const cats = [...new Set(databaseGiochi.map(g => g.type))].sort();
-        const select = document.getElementById('f-type');
-        cats.forEach(c => { select.innerHTML += `<option value="${c}">${c}</option>`; });
-
-        aggiornaDati();
-        setInterval(aggiornaDati, 10000);
+    // 1. Carica il tuo file JSON locale
+    async function caricaGiochi() {
+        try {
+            const response = await fetch('giochi.json');
+            databaseGiochi = await response.json();
+             popolaFiltroCategorie();
+        } catch (e) {
+            console.error("Errore caricamento giochi.json", e);
+        }
     }
 
+    function popolaFiltroCategorie() {
+        const select = document.getElementById('filterType');
+        const categorie = [...new Set(databaseGiochi.map(g => g.type))].sort();
+        categorie.forEach(cat => {
+            let opt = document.createElement('option');
+            opt.value = cat;
+            opt.innerHTML = cat;
+            select.appendChild(opt);
+        });
+    }
+
+    // 2. Recupera sondaggi e voti dal Foglio Google
     async function aggiornaDati() {
-        const res = await fetch(WEB_APP_URL);
-        datiSondaggi = await res.json();
-        renderizzaTutto();
+        try {
+            const response = await fetch(WEB_APP_URL);
+            datiSondaggi = await response.json();
+            renderizzaSondaggi();
+            document.getElementById('controlli-ricerca').style.display = 'block';
+        } catch (e) {
+            document.getElementById('listaSondaggi').innerHTML = "Errore di connessione al database.";
+        }
     }
 
-    function renderizzaTutto() {
-        const grid = document.getElementById('game-grid');
-        const info = document.getElementById('status-sondaggio');
-        const user = document.getElementById('username').value.trim();
-        const fType = document.getElementById('f-type').value;
-        const fTime = document.getElementById('f-time').value;
+    function calcolaClassifica() {
+    const area = document.getElementById('risultatiClassifica');
+    if (datiSondaggi.voti.length === 0) {
+        area.innerHTML = "<p>Nessun voto ancora pervenuto.</p>";
+        return;
+    }
 
-        const attivo = datiSondaggi.sondaggi.find(s => s.stato === "Attivo");
+    // Contiamo i voti per ogni gioco
+    const conteggio = {};
+    datiSondaggi.voti.forEach(v => {
+        conteggio[v.gioco] = (conteggio[v.gioco] || 0) + 1;
+    });
+
+    // Ordiniamo per chi ha più voti
+    const classificaOrdinata = Object.entries(conteggio).sort((a, b) => b[1] - a[1]);
+
+    let html = "<ul style='list-style: none; padding: 0;'>";
+    classificaOrdinata.forEach(([gioco, voti]) => {
+        html += `<li style="padding: 10px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between;">
+                    <span><strong>${gioco}</strong></span>
+                    <span style="background: var(--accent); color: white; padding: 2px 10px; border-radius: 15px;">${voti} voti</span>
+                 </li>`;
+    });
+    html += "</ul>";
+    area.innerHTML = html;
+}
+
+// Chiama questa funzione dentro renderizzaSondaggi() alla fine!
+// Inserisci calcolaClassifica(); come ultima riga di renderizzaSondaggi
+    
+    function renderizzaSondaggi() {
+        const container = document.getElementById('listaSondaggi');
+        const user = document.getElementById('username').value.trim();
+        const fCat = document.getElementById('filterType').value;
+        const fTime = parseInt(document.getElementById('filterTime').value);
         
-        if (!attivo) {
-            info.innerHTML = "❌ Nessun sondaggio attivo al momento.";
-            grid.innerHTML = "";
+        const sondaggiAttivi = datiSondaggi.sondaggi.filter(s => s.stato === "Attivo");
+
+        if (sondaggiAttivi.length === 0) {
+            container.innerHTML = "<p>Al momento non ci sono sondaggi aperti dall'admin.</p>";
             return;
         }
 
-        info.innerHTML = `✅ Sondaggio Aperto per ${attivo.giocatori} giocatori!`;
+        container.innerHTML = "";
         
-        // Filtro base (giocatori) + extra
-        let filtrati = databaseGiochi.filter(g => attivo.giocatori >= g.minP && attivo.giocatori <= g.maxP);
-        if(fType !== 'all') filtrati = filtrati.filter(g => g.type === fType);
-        if(fTime) filtrati = filtrati.filter(g => g.time <= fTime);
+        sondaggiAttivi.forEach(s => {
+            const card = document.createElement('div');
+            card.className = 'sondaggio-card';
+            card.innerHTML = `<h3>Sondaggio per ${s.giocatori} Giocatori</h3>`;
 
-        grid.innerHTML = filtrati.map(g => {
-            const giaVotato = datiSondaggi.voti.some(v => v.idSondaggio === attivo.id && v.username.toLowerCase() === user.toLowerCase() && v.gioco === g.name);
-            return `
-                <div class="game-card">
-                    <img src="${g.thumb}">
-                    <div class="game-card-content">
-                        <h4>${g.name}</h4>
-                        <div style="font-size:0.75em; color: #666; margin-bottom:10px;">${g.type} | ${g.time}min</div>
-                        <button class="btn-vota" ${giaVotato || !user ? 'disabled' : ''} onclick="vota('${attivo.id}', '${g.name.replace(/'/g, "\\'")}')">
-                            ${giaVotato ? 'VOTATO' : 'VOTA'}
-                        </button>
+            // Filtro 1: Numero giocatori (obbligatorio da sondaggio)
+            let filtrati = databaseGiochi.filter(g => s.giocatori >= g.minP && s.giocatori <= g.maxP);
+            
+            // Filtro 2: Categoria (opzionale da utente)
+            if(fCat) filtrati = filtrati.filter(g => g.type === fCat);
+            
+            // Filtro 3: Tempo (opzionale da utente)
+            if(fTime) filtrati = filtrati.filter(g => g.time <= fTime);
+
+            filtrati.forEach(gioco => {
+                // Controllo se l'utente ha già votato QUESTO gioco in QUESTO specifico sondaggio
+                const giaVotato = datiSondaggi.voti.some(v => 
+                    v.idSondaggio === s.id && 
+                    v.username.toLowerCase() === user.toLowerCase() && 
+                    v.gioco === gioco.name
+                );
+
+                const item = document.createElement('div');
+                item.className = 'gioco-item';
+                item.innerHTML = `
+                    <img src="${gioco.thumb}" class="gioco-img">
+                    <div class="gioco-info">
+                        <h4>${gioco.name}</h4>
+                        <div class="gioco-meta">
+                            <span class="badge">${gioco.type}</span>
+                            <span>⏱️ ${gioco.time} min</span> | <span>⚖️ ${gioco.difficulty}</span>
+                        </div>
                     </div>
-                </div>
-            `;
-        }).join('');
-
-        aggiornaClassifica();
+                    <button class="btn-vota" 
+                        ${giaVotato || !user ? 'disabled' : ''} 
+                        onclick="vota('${s.id}', '${gioco.name.replace(/'/g, "\\'")}')">
+                        ${giaVotato ? 'Votato' : 'Vota'}
+                    </button>
+                `;
+                card.appendChild(item);
+            });
+            container.appendChild(card);
+        });
+        calcolaClassifica();
     }
 
-    function aggiornaClassifica() {
-        const area = document.getElementById('classifica-voti');
-        const conteggio = {};
-        datiSondaggi.voti.forEach(v => { conteggio[v.gioco] = (conteggio[v.gioco] || 0) + 1; });
-        const ordinata = Object.entries(conteggio).sort((a,b) => b[1] - a[1]);
-        
-        area.innerHTML = ordinata.length ? ordinata.map(([gioco, voti]) => `
-            <div class="rank-item">
-                <span>${gioco}</span>
-                <span class="rank-count">${voti}</span>
-            </div>
-        `).join('') : "Nessun voto.";
-    }
-
-    async function vota(idS, gioco) {
+    async function vota(idSondaggio, nomeGioco) {
         const user = document.getElementById('username').value.trim();
-        await fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ azione: "vota", idSondaggio: idS, username: user, gioco: gioco }) });
-        aggiornaDati();
+        if(!user) {
+            alert("Devi inserire un username per votare!");
+            return;
+        }
+
+        try {
+            const res = await fetch(WEB_APP_URL, {
+                method: 'POST',
+                body: JSON.stringify({
+                    azione: "vota",
+                    idSondaggio: idSondaggio,
+                    username: user,
+                    gioco: nomeGioco
+                })
+            });
+            const data = await res.json();
+            if(data.success) {
+                alert("Voto registrato con successo!");
+                aggiornaDati(); // Ricarica per bloccare il tasto
+            } else {
+                alert(data.errore);
+            }
+        } catch (e) {
+            alert("Errore durante l'invio del voto.");
+        }
     }
 
-    inizializza();
+    // Inizializzazione
+    caricaGiochi().then(() => {
+        aggiornaDati();
+        // Auto-aggiornamento ogni 10 secondi per nuovi voti/sondaggi
+        setInterval(aggiornaDati, 10000);
+    });
 </script>
+
 </body>
 </html>
