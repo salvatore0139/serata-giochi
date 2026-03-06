@@ -56,24 +56,35 @@ let TUTTI_I_GIOCHI = [];
 
 async function inizializzaApp() {
     const listDiv = document.getElementById('game-list');
-    listDiv.innerHTML = "<p id='status-log' style='text-align:center;'>🚀 Caricamento tramite Google Proxy...</p>";
+    listDiv.innerHTML = "<p id='status-log' style='text-align:center;'>📦 Recupero giochi in corso...</p>";
     
     try {
-        // Chiediamo al TUO script di andare a prendere i dati di BGG
-        const proxyUrl = DB_URL + "?getBGG=1";
+        // Usiamo l'endpoint /raw che non crasha mai con "Unexpected end of JSON"
+        // E aggiungiamo un numero casuale per saltare il blocco 401 di cache
+        const bggUrl = `https://boardgamegeek.com/xmlapi2/collection?username=${BGG_USER}&own=1&stats=1&_=${Date.now()}`;
+        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(bggUrl)}`;
         
         const response = await fetch(proxyUrl);
-        const xmlText = await response.text();
+        if (!response.ok) throw new Error("Il server proxy è sovraccarico.");
 
+        const xmlText = (await response.text()).trim();
+
+        // Se BGG sta ancora elaborando
         if (xmlText.includes("message") && xmlText.includes("processed")) {
-            document.getElementById('status-log').innerHTML = "⏳ BGG sta preparando i dati... riprovo tra 10 secondi.";
+            document.getElementById('status-log').innerHTML = "⏳ BGG sta preparando i tuoi giochi... <br>Riprovo tra 10 secondi.";
             setTimeout(inizializzaApp, 10000);
             return;
         }
 
+        // Analizziamo l'XML
         const parser = new DOMParser();
         const xml = parser.parseFromString(xmlText, "text/xml");
         const items = Array.from(xml.querySelectorAll("item"));
+
+        if (items.length === 0) {
+            // Se arriviamo qui senza errori ma con 0 giochi, BGG ci sta mandando una pagina vuota
+            throw new Error("BGG ha risposto, ma la lista è vuota. Riprova tra un istante.");
+        }
 
         TUTTI_I_GIOCHI = items.map(item => {
             const stats = item.querySelector("stats");
@@ -87,16 +98,16 @@ async function inizializzaApp() {
             };
         }).sort((a, b) => a.name.localeCompare(b.name));
 
-        document.getElementById('status-log').innerHTML = "✅ Caricamento completato!";
+        document.getElementById('status-log').innerHTML = "";
         applicaFiltri();
         caricaVoti();
 
     } catch (e) {
         console.error(e);
-        document.getElementById('status-log').innerHTML = "❌ Errore Proxy Google. Verifica la distribuzione dello script.";
+        document.getElementById('status-log').innerHTML = `❌ Errore: ${e.message} <br><button onclick="location.reload()" style="margin-top:10px; padding:8px; cursor:pointer;">🔄 RIPROVA</button>`;
     }
 }
-
+    
 function applicaFiltri() {
     const listDiv = document.getElementById('game-list');
     const p = parseInt(document.getElementById('f-players').value) || 0;
