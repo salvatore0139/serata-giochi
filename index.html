@@ -1,127 +1,236 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Ludoteca Salvatore0139</title>
-<style>
-:root { --primary: #e94560; --bg: #1a1a2e; --card: #16213e; --input: #0f3460; --text: #ffffff; }
-body { font-family: 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; }
-.container { max-width: 800px; margin: auto; background: var(--card); padding: 25px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-h1 { text-align: center; color: var(--primary); margin-bottom: 30px; }
-.filter-section { background: var(--input); padding: 20px; border-radius: 15px; margin-bottom: 25px; }
-.input-group { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
-input { padding: 12px; border-radius: 8px; border: none; background: var(--bg); color: white; width: 100%; box-sizing: border-box; }
-.game-card { display: flex; align-items: center; background: var(--bg); margin-bottom: 15px; padding: 15px; border-radius: 12px; border-left: 5px solid var(--primary); transition: transform 0.2s; }
-.game-img { width: 80px; height: 80px; border-radius: 10px; object-fit: cover; margin-right: 20px; }
-.game-info { flex-grow: 1; }
-.badge { background: var(--input); padding: 3px 8px; border-radius: 5px; font-size: 0.8em; margin-right: 5px; }
-.vote-btn { background: var(--primary); color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; }
-#lista-voti { margin-top: 20px; background: rgba(255,255,255,0.05); padding: 15px; border-radius: 10px; }
-.voto-item { padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; }
-.admin-panel { margin-top: 50px; text-align: center; border-top: 1px dashed #444; padding-top: 20px; }
-.reset-btn { background: transparent; color: #888; border: 1px solid #444; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-size: 0.8em; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Serata Giochi - Salvatore</title>
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --accent: #27ae60;
+            --bg: #ecf0f1;
+            --text: #333;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            color: var(--text);
+        }
+
+        header {
+            background-color: var(--primary);
+            color: white;
+            padding: 1rem 2rem;
+            text-align: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        .container {
+            display: flex;
+            max-width: 1400px;
+            margin: 20px auto;
+            gap: 20px;
+            padding: 0 15px;
+        }
+
+        /* SIDEBAR */
+        aside {
+            width: 280px;
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            height: fit-content;
+            position: sticky;
+            top: 20px;
+        }
+
+        aside h3 { margin-top: 0; color: var(--primary); border-bottom: 2px solid var(--bg); padding-bottom: 10px; }
+
+        .filter-group { margin-bottom: 15px; }
+        label { display: block; font-size: 0.9em; margin-bottom: 5px; font-weight: bold; }
+        input, select { 
+            width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; 
+        }
+
+        #btn-filtra {
+            width: 100%; background: var(--accent); color: white; border: none; padding: 12px;
+            border-radius: 5px; font-weight: bold; cursor: pointer; transition: 0.3s; margin-top: 10px;
+        }
+
+        #btn-filtra:hover { background: #219150; }
+
+        .quick-link-list {
+            margin-top: 20px; max-height: 300px; overflow-y: auto; font-size: 0.85em;
+            border-top: 1px solid #eee; padding-top: 10px;
+        }
+        .quick-link-list a { text-decoration: none; color: #555; display: block; padding: 4px 0; }
+        .quick-link-list a:hover { color: var(--accent); }
+
+        /* GRIGLIA GIOCHI */
+        main { flex-grow: 1; }
+        #game-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 20px;
+        }
+
+        .game-card {
+            background: white; border-radius: 12px; overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1); transition: transform 0.2s;
+            display: flex; flex-direction: column;
+        }
+        .game-card:hover { transform: translateY(-5px); }
+        .game-card img { width: 100%; height: 180px; object-fit: cover; }
+        .game-card-content { padding: 15px; flex-grow: 1; display: flex; flex-direction: column; }
+        .game-card h4 { margin: 0 0 10px 0; font-size: 1.1em; color: var(--primary); }
+        .info { font-size: 0.85em; color: #666; margin-bottom: 5px; }
+        .tag { 
+            display: inline-block; background: #eee; padding: 2px 8px; 
+            border-radius: 10px; font-size: 0.75em; margin-right: 5px;
+        }
+
+        .btn-rules {
+            margin-top: auto; display: inline-block; text-align: center;
+            padding: 8px; background: #3498db; color: white;
+            text-decoration: none; border-radius: 5px; font-size: 0.8em; font-weight: bold;
+        }
+
+        @media (max-width: 768px) {
+            .container { flex-direction: column; }
+            aside { width: 100%; position: static; }
+        }
+    </style>
 </head>
 <body>
 
+<header>
+    <h1>🎲 La Mia Ludoteca</h1>
+</header>
+
 <div class="container">
-<h1>🎲 Serata Salvatore0139</h1>
+    <aside>
+        <h3>🔍 Filtra Giochi</h3>
+        
+        <div class="filter-group">
+            <label>Quanti giocatori siete?</label>
+            <input type="number" id="f-players" min="1" max="20" placeholder="Es: 4">
+        </div>
 
-<div class="filter-section">
-<input type="text" id="voter-name" placeholder="👤 Inserisci il tuo nome (Obbligatorio per votare)">
-<div class="input-group">
-<div><label style="font-size: 0.8em;">👥 Giocatori</label><input type="number" id="f-players" value="4" oninput="applicaFiltri()"></div>
-<div><label style="font-size: 0.8em;">⏱ Minuti Max</label><input type="number" id="f-time" value="120" oninput="applicaFiltri()"></div>
-</div>
-<input type="text" id="f-search" placeholder="🔍 Cerca per titolo..." oninput="applicaFiltri()" style="margin-top: 15px;">
-</div>
+        <div class="filter-group">
+            <label>Tempo massimo (minuti)</label>
+            <input type="number" id="f-time" placeholder="Es: 60">
+        </div>
 
-<div id="game-list"><p style="text-align: center;">📦 Caricamento ludoteca da BGG...</p></div>
+        <div class="filter-group">
+            <label>Categoria</label>
+            <select id="f-type">
+                <option value="all">Tutte le categorie</option>
+                <option value="Party Game">Party Game</option>
+                <option value="Cooperativo">Cooperativo</option>
+                <option value="Strategia">Strategia</option>
+                <option value="Carte">Giochi di Carte</option>
+                <option value="Deduzione">Deduzione</option>
+            </select>
+        </div>
 
-<div id="voti-ricevuti">
-<h3>📊 Voti Attuali:</h3>
-<div id="lista-voti">Caricamento voti...</div>
-</div>
+        <button id="btn-filtra" onclick="applicaFiltri()">APPLICA FILTRI</button>
 
-<div class="admin-panel">
-<button class="reset-btn" onclick="resetVoti()">🗑️ Resetta Sondaggio (Proprietario)</button>
-</div>
+        <div class="quick-link-list" id="quick-links">
+            <strong>📚 Accesso rapido regole:</strong>
+            </div>
+    </aside>
+
+    <main>
+        <div id="game-grid">
+            </div>
+    </main>
 </div>
 
 <script>
-const BGG_USER = "Salvatore0139";
-const DB_URL = "https://script.google.com/macros/s/AKfycbyBVH44nqpTmS8o8i1mzlEdgUPhAfp8EiG0hvmJOiGigWR0NO3aajMjhtNHcWpwOt4z/exec";
-let TUTTI_I_GIOCHI = [];
+    let TUTTI_I_GIOCHI = [];
 
-async function inizializzaApp() {
-    const listDiv = document.getElementById('game-list');
-    listDiv.innerHTML = "⌛ Caricamento ludoteca...";
+    // 1. Caricamento iniziale
+    async function inizializzaApp() {
+        const grid = document.getElementById('game-grid');
+        grid.innerHTML = "<p>Caricamento dati in corso...</p>";
 
-    try {
-        // Legge il file locale che hai caricato su GitHub
-        const response = await fetch('giochi.json');
-        TUTTI_I_GIOCHI = await response.json();
-
-        listDiv.innerHTML = ""; 
-        applicaFiltri(); 
-        caricaVoti(); // I voti continuano a funzionare con Google Sheets
-    } catch (e) {
-        listDiv.innerHTML = "❌ Errore nel caricamento del file giochi.json";
-        console.error(e);
+        try {
+            const response = await fetch('giochi.json');
+            TUTTI_I_GIOCHI = await response.json();
+            
+            // Ordiniamo alfabeticamente per nome
+            TUTTI_I_GIOCHI.sort((a, b) => a.name.localeCompare(b.name));
+            
+            applicaFiltri(); // Mostra tutti all'inizio
+        } catch (error) {
+            grid.innerHTML = "<p>❌ Errore: Assicurati che il file 'giochi.json' sia presente nella cartella.</p>";
+            console.error(error);
+        }
     }
-}
-    
-function applicaFiltri() {
-    const listDiv = document.getElementById('game-list');
-    const p = parseInt(document.getElementById('f-players').value) || 0;
-    const t = parseInt(document.getElementById('f-time').value) || 999;
-    const s = document.getElementById('f-search').value.toLowerCase();
-    const f = TUTTI_I_GIOCHI.filter(g => p >= g.minP && p <= g.maxP && g.time <= t && g.name.toLowerCase().includes(s));
-    listDiv.innerHTML = f.length ? "" : "<p>Nessun gioco trovato.</p>";
-    f.forEach(g => {
-        listDiv.innerHTML += `<div class="game-card">
-            <img src="${g.thumb}" class="game-img">
-            <div class="game-info"><strong>${g.name}</strong><span class="badge">👥 ${g.minP}-${g.maxP}</span><span class="badge">⏱ ${g.time}m</span><span class="badge">🧠 ${g.weight.toFixed(1)}</span></div>
-            <button class="vote-btn" onclick="vota('${g.name.replace(/'/g,"\\'")}')">VOTA</button>
-        </div>`;
-    });
-}
 
-async function vota(gameName) {
-    const user = document.getElementById('voter-name').value.trim();
-    if (!user) { alert("Metti il tuo nome!"); return; }
-    const btn = event.target;
-    btn.disabled = true; btn.innerText = "⏳";
-    try {
-        await fetch(DB_URL, {
-            method: 'POST',
-            mode: 'no-cors', // FONDAMENTALE per Google Apps Script
-            body: JSON.stringify({username:user, game:gameName, vote:1})
+    // 2. Logica dei filtri
+    function applicaFiltri() {
+        const players = document.getElementById('f-players').value;
+        const time = document.getElementById('f-time').value;
+        const type = document.getElementById('f-type').value;
+
+        const filtrati = TUTTI_I_GIOCHI.filter(g => {
+            const okPlayers = !players || (players >= g.minP && players <= g.maxP);
+            const okTime = !time || (g.time <= time);
+            const okType = (type === "all") || (g.type && g.type.includes(type));
+            return okPlayers && okTime && okType;
         });
-        alert("Voto inviato!");
-        setTimeout(caricaVoti, 1500);
-    } catch(e) { alert("Errore!"); }
-    finally { btn.disabled=false; btn.innerText="VOTA"; }
-}
 
-async function caricaVoti() {
-    try {
-        const r = await fetch(DB_URL);
-        const d = await r.json();
-        const l = document.getElementById('lista-voti');
-        l.innerHTML = d.length <= 1 ? "<i>Nessun voto.</i>" : d.slice(1).reverse().map(row => `
-            <div class="voto-item"><span>👤 <b>${row[1]}</b></span><span>🎯 ${row[2]}</span></div>`).join('');
-    } catch(e) {}
-}
-
-async function resetVoti() {
-    if(prompt("Password?")==="1234") {
-        await fetch(DB_URL, { method:'POST', mode:'no-cors', body:JSON.stringify({action:"reset"}) });
-        alert("Reset!"); location.reload();
+        renderizza(filtrati);
     }
-}
-inizializzaApp();
+
+    // 3. Renderizzazione grafica
+    function renderizza(lista) {
+        const grid = document.getElementById('game-grid');
+        const quickLinks = document.getElementById('quick-links');
+        
+        grid.innerHTML = "";
+        quickLinks.innerHTML = "<strong>📚 Accesso rapido regole:</strong>";
+
+        if (lista.length === 0) {
+            grid.innerHTML = "<p>Nessun gioco corrisponde ai filtri selezionati.</p>";
+            return;
+        }
+
+        lista.forEach(g => {
+            // Card Griglia
+            const card = document.createElement('div');
+            card.className = 'game-card';
+            card.innerHTML = `
+                <img src="${g.thumb}" alt="${g.name}">
+                <div class="game-card-content">
+                    <h4>${g.name}</h4>
+                    <div class="info">👥 Giocatori: ${g.minP}-${g.maxP}</div>
+                    <div class="info">⏱️ Durata: ${g.time} min</div>
+                    <div style="margin: 10px 0;">
+                        <span class="tag">${g.type}</span>
+                        <span class="tag" style="background:#d5f5e3">${g.difficulty}</span>
+                    </div>
+                    <a href="${g.link || '#'}" target="_blank" class="btn-rules">LEGGI REGOLE</a>
+                </div>
+            `;
+            grid.appendChild(card);
+
+            // Link Sidebar
+            const sLink = document.createElement('a');
+            sLink.href = g.link || '#';
+            sLink.target = "_blank";
+            sLink.innerText = `• ${g.name}`;
+            quickLinks.appendChild(sLink);
+        });
+    }
+
+    // Avvio
+    window.onload = inizializzaApp;
 </script>
+
 </body>
 </html>
