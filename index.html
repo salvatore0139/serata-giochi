@@ -78,44 +78,44 @@
     let TUTTI_I_GIOCHI = [];
 
     // 1. Carica tutto all'avvio
-    async function inizializzaApp() {
+async function inizializzaApp() {
         const listDiv = document.getElementById('game-list');
-        listDiv.innerHTML = "<p id='status-log' style='text-align:center;'>Inizializzazione...</p>";
-        const log = (msg) => document.getElementById('status-log').innerText = msg;
+        listDiv.innerHTML = "<p id='status-log' style='text-align:center;'>Connessione sicura in corso...</p>";
+        const log = (msg) => document.getElementById('status-log').innerHTML = msg;
 
         try {
-            log("Connessione a BGG tramite ponte secondario...");
-            
-            // Usiamo il proxy più semplice che esista
+            // URL originale di BGG
             const bggUrl = `https://boardgamegeek.com/xmlapi2/collection?username=${BGG_USER}&own=1&stats=1`;
-            const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(bggUrl)}`;
             
-            // Usiamo /raw invece di /get per ricevere il testo puro senza involucri JSON
+            // Usiamo corsproxy.io (molto più stabile e semplice)
+            const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(bggUrl)}`;
+            
+            log("🛰️ Recupero dati da BoardGameGeek...");
             const response = await fetch(proxyUrl);
             
-            if (!response.ok) throw new Error("Il server proxy ha rifiutato la connessione.");
+            if (!response.ok) throw new Error("Il server proxy non risponde (Errore " + response.status + ")");
 
             const xmlText = await response.text();
-            log("Dati ricevuti, analisi in corso...");
 
+            // Gestione dell'attesa BGG
             if (xmlText.includes("message") && xmlText.includes("processed")) {
-                log("BGG sta ancora generando il tuo file. Ricarica tra 20 secondi.");
+                log("⏳ BGG sta ancora preparando la tua lista...<br><b>Riprovo automaticamente tra 5 secondi...</b>");
+                setTimeout(inizializzaApp, 5000); // Riprova da sola!
                 return;
             }
 
+            log("📊 Analisi collezione...");
             const parser = new DOMParser();
             const xml = parser.parseFromString(xmlText, "text/xml");
             
-            // Controllo se l'XML è valido o è un errore
             if (xml.getElementsByTagName("parsererror").length > 0) {
-                console.log(xmlText); // Per debug
-                throw new Error("Errore nel formato dei dati ricevuti.");
+                throw new Error("Formato dati non valido ricevuto da BGG.");
             }
 
             const items = Array.from(xml.querySelectorAll("item"));
 
             if (items.length === 0) {
-                log("La tua collezione sembra vuota o privata su BGG.");
+                log("⚠️ Nessun gioco trovato. La tua collezione su BGG è vuota o privata?");
                 return;
             }
 
@@ -131,16 +131,17 @@
                 };
             }).sort((a, b) => a.name.localeCompare(b.name));
 
-            log("Caricamento completato!");
+            log("✅ Caricamento completato!");
             applicaFiltri();
             caricaVoti();
 
         } catch (e) {
             console.error(e);
-            log("❌ Errore: " + e.message);
-            listDiv.innerHTML += `<button onclick="location.reload()" style="display:block; margin:10px auto; padding:10px; background:#e94560; color:white; border:none; border-radius:5px;">RIPROVA</button>`;
+            log("❌ Errore di connessione: " + e.message + "<br><small>Prova a ricaricare tra un minuto.</small>");
+            listDiv.innerHTML += `<button onclick="location.reload()" style="display:block; margin:10px auto; padding:10px; background:#e94560; color:white; border:none; border-radius:5px; cursor:pointer;">🔄 FORZA RICARICA</button>`;
         }
     }
+    
     // 2. Filtri istantanei in memoria
     function applicaFiltri() {
         const listDiv = document.getElementById('game-list');
